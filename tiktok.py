@@ -12,10 +12,11 @@ import pandas as pd
 
 
 class TikTok():
-  def __init__(self, driver_path):
-    self.driver_path = driver_path
+  def __init__(self, username: str):
+    self.driver = self.init_driver()
+    self.username = username
 
-  def init_browser(self):
+  def init_driver(self):
     options = webdriver.ChromeOptions()
     options.set_capability("goog:loggingPrefs", {"performance": "ALL", "browser": "ALL"})
     options.add_argument('--headless')
@@ -26,7 +27,7 @@ class TikTok():
     user_agent = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.50 Safari/537.36'    
     options.add_argument(f'user-agent={user_agent}')
 
-    return webdriver.Chrome(self.driver_path, options=options)
+    return webdriver.Chrome(options=options)
 
   @staticmethod
   def format_to_dataframe(response):
@@ -47,9 +48,10 @@ class TikTok():
 
     return df
 
-  def get_videos_ids(self, user, full=False):
-    browser = self.init_browser()
-    browser.get(f'https://www.tiktok.com/{user}')
+  def get_video_ids(self, full):
+    browser = self.driver
+    browser.get(f'https://www.tiktok.com/@{self.username}')
+    print('Connected!')
     
     if full == True:
       # O feed do TikTok possui scroll infinito, ao que foi proposta a seguinte solução
@@ -68,6 +70,7 @@ class TikTok():
           break
 
       html = browser.page_source
+      print('Got page source!')
       soup = BeautifulSoup(html, 'html.parser')
 
       browser.quit()
@@ -89,7 +92,7 @@ class TikTok():
     else:
       html = browser.page_source
       soup = BeautifulSoup(html, 'html.parser')
-      
+
       videos_id = []
       videos_title = []
 
@@ -102,14 +105,21 @@ class TikTok():
       videos_id = [item for sublist in videos_id for item in sublist]
 
       videos_tuple = list(zip(videos_id, videos_title))
+
+      # Exit program if no videos were found
+      if len(videos_tuple) == 0:
+        sys.exit('Empty or non-existent profile')
+
       return pd.DataFrame(videos_tuple, columns=['id', 'title'])
 
-  def get_video_data(self, video_ids):
-    browser = self.init_browser()
+  def get_video_data(self, full=False):
+    video_ids = self.get_video_ids(full)
+    browser = self.init_driver()
     dfs = []
 
-    for id in video_ids:
-      browser.get(f'https://www.tiktok.com/{self.user}/video/{id}')
+    for id in video_ids['id'].head(1):
+      print(id)
+      browser.get(f'https://www.tiktok.com/{self.username}/video/{id}')
       time.sleep(5)
       logs = browser.get_log('performance')
 
@@ -131,4 +141,3 @@ class TikTok():
             dfs.append(df)
 
     return pd.concat(dfs, axis=0)
-
