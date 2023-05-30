@@ -1,21 +1,27 @@
 #!usr/bin/python3
 
-from tiktok import TikTok
+from tiktuki import TikTuki
 import argparse
 
 def main():
   parser = argparse.ArgumentParser(description='')
+
   parser.add_argument('--username',
                       '-u',
                       type=str,
-                      required=True)
+                      required=True,
+                      help='profile username to be searched')
+
+  parser.add_argument('--full',
+                      action='store_true',
+                      required=False,
+                      help='add argument for full profile scrape')
+
   args = parser.parse_args()
 
   user = args.username
-  tiktok = TikTok(user)
-  df = tiktok.get_video_data() # arg full=True retorna IDs de todos os vídeos postados
- # print(df.head())
-
+  tiktok = TikTuki(user)
+  df = tiktok.get_video_data(args.full)
   return # TODO: retornar algo significativo
 
 

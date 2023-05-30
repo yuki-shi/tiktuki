@@ -10,14 +10,15 @@ import time
 import sys
 import os.path
 import pandas as pd
+from typing import List, Dict
 
 
-class TikTok():
+class TikTuki():
   def __init__(self, username: str):
     self.driver = self.init_driver()
     self.username = username
 
-  def init_driver(self):
+  def init_driver(self) -> webdriver.Chrome:
     options = webdriver.ChromeOptions()
     options.set_capability("goog:loggingPrefs", {"performance": "ALL", "browser": "ALL"})
     options.add_argument('--headless')
@@ -94,7 +95,7 @@ class TikTok():
 
       return pd.DataFrame(videos_tuple, columns=['id', 'title'])
   
-  def get_post_metrics(self, video_ids):
+  def get_post_metrics(self, video_ids: List[str]) -> Dict[str, int] :
     for id in video_ids:
       url = f'https://www.tiktok.com/@{self.username}/video/{id}'
       response = requests.get(url)
@@ -118,9 +119,10 @@ class TikTok():
 
       yield post_data
     
-  def get_video_data(self, full=False):
+  def get_video_data(self, full: bool) -> List[Dict[str, int]]:
     video_ids = self.get_video_ids(full)
     post_metrics = self.get_post_metrics(video_ids['id'])
+    output_list = []
 
     for i in post_metrics:
-      print(i)
+      output_list.append(i) 
