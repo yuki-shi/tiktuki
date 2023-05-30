@@ -1,4 +1,5 @@
 import json
+import requests
 from bs4 import BeautifulSoup
 import re
 from selenium import webdriver
@@ -12,10 +13,11 @@ import pandas as pd
 
 
 class TikTok():
-  def __init__(self, driver_path):
-    self.driver_path = driver_path
+  def __init__(self, username: str):
+    self.driver = self.init_driver()
+    self.username = username
 
-  def init_browser(self):
+  def init_driver(self):
     options = webdriver.ChromeOptions()
     options.set_capability("goog:loggingPrefs", {"performance": "ALL", "browser": "ALL"})
     options.add_argument('--headless')
@@ -26,30 +28,12 @@ class TikTok():
     user_agent = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.50 Safari/537.36'    
     options.add_argument(f'user-agent={user_agent}')
 
-    return webdriver.Chrome(self.driver_path, options=options)
+    return webdriver.Chrome(options=options)
 
-  @staticmethod
-  def format_to_dataframe(response):
-    video = response['itemList'][0]
-
-    video_data = video['stats']
-    video_data.update(dict({'desc': video['desc'],
-                            'date': video['createTime'],
-                            'id': video['id']}))
-
-    df = pd.DataFrame(video_data.items()).transpose()
-    header = df.iloc[0]
-    df.columns = header
-    df.drop(df.index[0], inplace=True)
-    
-    df['date'] = df['date'].astype(int)
-    df['date_f'] = [(dt.datetime.fromtimestamp(x).strftime('%Y-%m-%d')) for x in df['date']]
-
-    return df
-
-  def get_videos_ids(self, user, full=False):
-    browser = self.init_browser()
-    browser.get(f'https://www.tiktok.com/{user}')
+  def get_video_ids(self, full: bool) -> pd.DataFrame:
+    browser = self.driver
+    browser.get(f'https://www.tiktok.com/@{self.username}')
+    print('Connected!')
     
     if full == True:
       # O feed do TikTok possui scroll infinito, ao que foi proposta a seguinte solução
@@ -68,6 +52,7 @@ class TikTok():
           break
 
       html = browser.page_source
+      print('Got page source!')
       soup = BeautifulSoup(html, 'html.parser')
 
       browser.quit()
@@ -89,7 +74,7 @@ class TikTok():
     else:
       html = browser.page_source
       soup = BeautifulSoup(html, 'html.parser')
-      
+
       videos_id = []
       videos_title = []
 
@@ -102,33 +87,40 @@ class TikTok():
       videos_id = [item for sublist in videos_id for item in sublist]
 
       videos_tuple = list(zip(videos_id, videos_title))
+
+      # Exit program if no videos were found
+      if len(videos_tuple) == 0:
+        sys.exit('Empty or non-existent profile')
+
       return pd.DataFrame(videos_tuple, columns=['id', 'title'])
-
-  def get_video_data(self, video_ids):
-    browser = self.init_browser()
-    dfs = []
-
+  
+  def get_post_metrics(self, video_ids):
     for id in video_ids:
-      browser.get(f'https://www.tiktok.com/{self.user}/video/{id}')
-      time.sleep(5)
-      logs = browser.get_log('performance')
+      url = f'https://www.tiktok.com/@{self.username}/video/{id}'
+      response = requests.get(url)
+      soup = BeautifulSoup(response.text, 'html.parser')
 
-      for entry in logs:
-        message = json.loads(entry['message'])
-        message = message['message']
-        method = message['method']
+      post_data = {}
+      metrics = soup.find_all('strong', attrs={'data-e2e': True})
 
-        if method == 'Network.requestWillBeSentExtraInfo':
-          headers = message['params']['headers']
-          if headers.get(':path') is not None and headers.get(':path').startswith('/api/recommend'):
-            try:
-              body = browser.execute_cdp_cmd('Network.getResponseBody', {'requestId': message['params']['requestId']})
-            except exceptions.WebDriverException:
-              return ('Body vazio!!')
+      post_data['url'] = url
 
-            response = json.loads(body['body'])
-            df = self.format_to_dataframe(response)
-            dfs.append(df)
+      try:
+        post_data['desc'] = soup.find_all('span', attrs={'class': 'tiktok-j2a19r-SpanText efbd9f0'})[0].text
+        
+        for metric in metrics:
+          post_data[metric['data-e2e']] = metric.text
 
-    return pd.concat(dfs, axis=0)
+      except:
+        for key in ['like-count', 'comment-count', 'undefined-count', 'share-count']:
+            post_data[key] = 0
+        post_data['desc'] = 'Video not found'
 
+      yield post_data
+    
+  def get_video_data(self, full=False):
+    video_ids = self.get_video_ids(full)
+    post_metrics = self.get_post_metrics(video_ids['id'])
+
+    for i in post_metrics:
+      print(i)
