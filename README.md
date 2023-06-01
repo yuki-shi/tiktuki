@@ -1,16 +1,17 @@
-# tiktuki: public data tiktok scraper
-get public metrics from videos of any tiktok profile!
+# tiktuki ~ public data TikTok scraper
+get public metrics from videos of any TikTok profile.
 
 ## :robot:  use cases
 diagnosis of profile health and overall post engagement.
 
 
-can be ran on multiple profiles for competitor analysis.
+can be ran on multiple profiles for analysis and benchmarking.
 
 ## :steam_locomotive: usage
 
 ### setup
 ```bash
+pip install -r requirements.txt
 ```
 
 ### run
