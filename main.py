@@ -1,4 +1,4 @@
-#!usr/bin/python3
+#!/usr/bin/python3
 
 from tiktuki import TikTuki
 import argparse
@@ -21,9 +21,9 @@ def main():
 
   user = args.username
   tiktok = TikTuki(user)
-  df = tiktok.get_video_data(args.full)
-  return # TODO: retornar algo significativo
+  video_data = tiktok.get_video_data(args.full)
 
+  return 
 
 if __name__ == '__main__':
-  main()
+    main()

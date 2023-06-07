@@ -6,11 +6,12 @@ from selenium import webdriver
 from selenium.common import exceptions
 from selenium.webdriver.chrome.service import Service
 import datetime as dt
-import time
+from time import sleep
 import sys
 import os.path
 import pandas as pd
-from typing import List, Dict
+from typing import List, Dict, Tuple
+from tqdm import tqdm
 
 
 class TikTuki():
@@ -31,11 +32,25 @@ class TikTuki():
 
     return webdriver.Chrome(options=options)
 
-  def get_video_ids(self, full: bool) -> pd.DataFrame:
+  def scrape_page_source(self, html: str) -> Tuple[List[str], List[str]]:
+    soup = BeautifulSoup(html, 'html.parser')
+
+    videos_id = []
+    videos_title = []
+
+    for anchor in soup.find_all('a', href=True):
+      if anchor.has_attr('title'):
+        videos_title.append(anchor['title'])
+      videos_id.append(re.findall(r'.((?<=\/video\/).*)',anchor['href']))
+    
+    return videos_id, videos_title
+
+  def get_video_ids(self, full: bool) -> Dict[str, str]:
     browser = self.driver
     browser.get(f'https://www.tiktok.com/@{self.username}')
-    print('Connected!')
+    print(f"Scraping {self.username}'s profile")
     
+    # For a full profile scrape
     if full == True:
       # O feed do TikTok possui scroll infinito, ao que foi proposta a seguinte solução
       # que tomo aplicada aqui:
@@ -45,58 +60,38 @@ class TikTuki():
 
       while True:
         browser.execute_script(f'window.scrollTo(0, {screen_height * counter});')
-        time.sleep(1)
         scroll_height = browser.execute_script('return document.body.scrollHeight;')
+        sleep(3)
         counter += 1
 
         if (screen_height * counter) > scroll_height:
           break
 
       html = browser.page_source
-      print('Got page source!')
-      soup = BeautifulSoup(html, 'html.parser')
-
-      browser.quit()
-
-      videos_id = []
-      videos_title = []
-
-      for anchor in soup.find_all('a', href=True):
-        if anchor.has_attr('title'):
-          videos_title.append(anchor['title'])
-        videos_id.append(re.findall(r'.((?<=\/video\/).*)',anchor['href']))
-
-      videos_id = list(filter(None, videos_id))
-      videos_id = [item for sublist in videos_id for item in sublist]
-
-      videos_tuple = list(zip(videos_id, videos_title))
-      return pd.DataFrame(videos_tuple, columns=['id', 'title'])
-
+      with open('yuki.html', 'w') as f:
+          f.write(html)
+      
+    # For a parcial scrape (default)
     else:
       html = browser.page_source
-      soup = BeautifulSoup(html, 'html.parser')
+      
+    browser.quit() 
+    videos_id, videos_title = self.scrape_page_source(html)
 
-      videos_id = []
-      videos_title = []
+    videos_id = list(filter(None, videos_id))
+    videos_id = [item for sublist in videos_id for item in sublist]
 
-      for anchor in soup.find_all('a', href=True):
-        if anchor.has_attr('title'):
-          videos_title.append(anchor['title'])
-        videos_id.append(re.findall(r'.((?<=\/video\/).*)',anchor['href']))
+    videos_dict ={key: value for key, value in zip(videos_id, videos_title)}
 
-      videos_id = list(filter(None, videos_id))
-      videos_id = [item for sublist in videos_id for item in sublist]
+    # Exit program if no videos were found
+    if len(videos_dict) == 0:
+      sys.exit('Empty or non-existent profile')
+     
+    print(f'Got {len(videos_dict)} videos')
+    return videos_dict 
 
-      videos_tuple = list(zip(videos_id, videos_title))
-
-      # Exit program if no videos were found
-      if len(videos_tuple) == 0:
-        sys.exit('Empty or non-existent profile')
-
-      return pd.DataFrame(videos_tuple, columns=['id', 'title'])
-  
   def get_post_metrics(self, video_ids: List[str]) -> Dict[str, int] :
-    for id in video_ids:
+    for id in tqdm(video_ids):
       url = f'https://www.tiktok.com/@{self.username}/video/{id}'
       response = requests.get(url)
       soup = BeautifulSoup(response.text, 'html.parser')
@@ -121,8 +116,10 @@ class TikTuki():
     
   def get_video_data(self, full: bool) -> List[Dict[str, int]]:
     video_ids = self.get_video_ids(full)
-    post_metrics = self.get_post_metrics(video_ids['id'])
+    post_metrics = self.get_post_metrics(video_ids.values())
     output_list = []
 
     for i in post_metrics:
       output_list.append(i) 
+
+    return output_list
