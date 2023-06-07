@@ -9,16 +9,21 @@
     the 4 public engagement metrics avaible on TikTok are <i>likes</i>, <i>comments</i>, <i>saved</i> and <i>shares</i></p>
   <h2>:steam_locomotive: usage</h2>
   <h3>setup</h3>
+  <p>set your virtual environment then install the requirements</P
   
 ```bash
-pip install -r requirements.txt
+  $ pip install -r requirements.txt
 ```
+  
   <h3>run</h3>
   
 ```bash
 $ python3 main.py -u {username}
 ```
-  <p>you may also add <i>--full</i> argument for full profile scrape.</p>
+
+  <p>where <i>{username}</i> is the profile to be scraped, without @.<br>by default the script should return the last 30 videos posted by the user<br>you may also add the <i>--full</i> argument for full profile scrape.</p>
+  <h3>expcted result</h3>
+  <p>csv image here :)</p>
   <h2>:jack_o_lantern: technology</h2>
   <p>python.</p>
 </body>
