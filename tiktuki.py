@@ -35,17 +35,15 @@ class TikTuki():
   def scrape_page_source(self, html: str) -> Tuple[List[str], List[str]]:
     soup = BeautifulSoup(html, 'html.parser')
 
-    videos_id = []
-    videos_title = []
+    videos_data = {}
 
     for anchor in soup.find_all('a', href=True):
-      if anchor.has_attr('title'):
-        videos_title.append(anchor['title'])
-      videos_id.append(re.findall(r'.((?<=\/video\/).*)',anchor['href']))
-    
-    return videos_id, videos_title
+        if anchor.has_attr('title'):
+            videos_data[anchor['href']] = anchor['title']
+   
+    return videos_data 
 
-  def get_video_ids(self, full: bool) -> Dict[str, str]:
+  def get_video_urls(self, full: bool) -> Dict[str, str]:
     browser = self.driver
     browser.get(f'https://www.tiktok.com/@{self.username}')
     print(f"Scraping {self.username}'s profile")
@@ -68,20 +66,13 @@ class TikTuki():
           break
 
       html = browser.page_source
-      with open('yuki.html', 'w') as f:
-          f.write(html)
       
     # For a parcial scrape (default)
     else:
       html = browser.page_source
       
     browser.quit() 
-    videos_id, videos_title = self.scrape_page_source(html)
-
-    videos_id = list(filter(None, videos_id))
-    videos_id = [item for sublist in videos_id for item in sublist]
-
-    videos_dict ={key: value for key, value in zip(videos_id, videos_title)}
+    videos_dict = self.scrape_page_source(html)
 
     # Exit program if no videos were found
     if len(videos_dict) == 0:
@@ -90,9 +81,8 @@ class TikTuki():
     print(f'Got {len(videos_dict)} videos')
     return videos_dict 
 
-  def get_post_metrics(self, video_ids: List[str]) -> Dict[str, int] :
-    for id in tqdm(video_ids):
-      url = f'https://www.tiktok.com/@{self.username}/video/{id}'
+  def get_post_metrics(self, video_urls: List[str]) -> Dict[str, int]:
+    for url in tqdm(video_urls):
       response = requests.get(url)
       soup = BeautifulSoup(response.text, 'html.parser')
 
@@ -115,8 +105,8 @@ class TikTuki():
       yield post_data
     
   def get_video_data(self, full: bool) -> List[Dict[str, int]]:
-    video_ids = self.get_video_ids(full)
-    post_metrics = self.get_post_metrics(video_ids.values())
+    video_urls = self.get_video_urls(full)
+    post_metrics = self.get_post_metrics(video_urls.keys())
     output_list = []
 
     for i in post_metrics:

@@ -2,8 +2,9 @@
 
 from tiktuki import TikTuki
 import argparse
+import pandas as pd
 
-def main():
+def main() -> None:
   parser = argparse.ArgumentParser(description='')
 
   parser.add_argument('--username',
@@ -23,7 +24,12 @@ def main():
   tiktok = TikTuki(user)
   video_data = tiktok.get_video_data(args.full)
 
-  return 
+  df = pd.DataFrame(video_data)
+  df.to_csv('tiktok_data.csv', index=False)
+
+  print('Exported ot .csv!')
+
+  return
 
 if __name__ == '__main__':
     main()
