@@ -12,7 +12,7 @@
   <p>set your virtual environment then install the requirements</p>
   
 ```bash
-  $ pip install -r requirements.txt
+$ pip install -r requirements.txt
 ```
   
   <h3>run</h3>
